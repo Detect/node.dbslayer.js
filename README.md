@@ -9,10 +9,18 @@ DBSlayer benefits include:
 
 * Developed by the New York Times, it's designed with scalability in mind, doing connection pooling for you. This is what makes DBSlayer arguably better than implementing an async MySQL client directly into Node (through mysac for example).
 
+Forked version enhancements/modifications
+-----------------------------------------
+
+* returning results as JSON objects with column names as attributes
+* supports query parsing with `?` placeholder
+* uses `addListener` instead of `addCallback`
+
+
 Requirements
 ------------
 
-* [Node.js](http://nodejs.org/) (tested with v0.1.21)
+* [Node.js](http://nodejs.org/) (tested with v0.5.0-pre)
 * [DBSlayer](http://code.nytimes.com/projects/dbslayer/) (tested with beta-12)
 
 How to Use
@@ -32,19 +40,38 @@ and then perform a query:
 	
 To be truly non-blocking, `Server::fetch` has to return a promise and not the result immediately. This means that in order to be able to perform queries in a designated order or access the result, you'll have to use callbacks:
 
-	connection.query("SELECT * FROM TABLE").addCallback(function(result){
-		for (var i = 0, l = result.ROWS.length; i < l; i++){
-			var row = result.ROWS[i];
+	var q = connection.query("SELECT * FROM TABLE");
+	q.addListener("success", function(results){
+		for (var i = 0, l = results.length; i < l; i++){
+			var row = results[i];
 			// do something with the data
 		}
 	});
+
+This forked version supports query parsing. `?` characters can be used as placeholders for variable length arguments that will be safely escaped before sending the final query:
+
+	connection.query("INSERT INTO TABLE SET col1 = ?, col2 = ?, col3 = ?", integer_value, "string value", json_object)
+
+This forked version's results are returned as JSON objects. Each rows' values are stored as attributes:
+
+	connection.query("SELECT * FROM TABLE WHERE col1 = ?", integer_value).addListener("success", function(results) {
+		for(i in results) {
+			console.log(results[i].col1, results[i].col2, results[i].col3);
+			// or results[i]["col1"]
+		}
+	});
+		
 	
 If you want to capture MySQL errors, subscribe to the 'error' event
 
-	connection.query("SELECT * FROM inexistent_table").addErrback(function(error, errno){
-		alert('mysql error! + ' error);
+	var q = connection.query("SELECT * FROM NONEXISTENT_TABLE");
+	q.addListener("error", function(error, errno, request_obj) {
+		console.log("error:", error);
+		console.log("MySQL error number:", errno);
+		console.log("SQL query that caused error:", request_obj.SQL);
 	});
-	
+
+
 Aside from query, the commands `stat`, `client_info`, `host_info`, `server_version` and `client_version` are available, which provide the respective information about the server.
 
 Installing DBSlayer
