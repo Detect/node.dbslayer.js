@@ -25,7 +25,13 @@ var Server = this.Server = function(host, port, timeout){
 Server.prototype.fetch = function(obj, key){
   var e = new events.EventEmitter();
   var connection = http.createClient(this.port, this.host);
+
+  connection.addListener('error', function(error) {
+   e.emit('error', 'DBSlayer error: ' + error.message, error.errno, obj);
+  });
+
   var request = connection.request("GET",'/db?' + escape(JSON.stringify(obj)), {'host': this.host});
+
   request.addListener('response',
     function(response) {
       var data = [];
